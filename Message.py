@@ -44,9 +44,13 @@ class MyProcess:
         self.BroadCast()
         bds = []
         for i in range(self.num):
-            bdget = multiprocessing.Process(target=self.read,args = (self.pipe[i][self.myid][1],))
-            bds.append(bdget)
-            bdget.start()
+            # bdget = multiprocessing.Process(target=self.read,args = (self.pipe[i][self.myid][1],))
+            # bds.append(bdget)
+            # bdget.start()
+            now  = self.pipe[i][self.myid][1].recv()
+            # print("Me:%s, Now: %s" % (self.pid, now))
+            self.AllPid.append(now)
+            # print(self.AllPid)
 
         for i in range(len(bds)):
             bds[i].join()
@@ -71,7 +75,7 @@ class MyProcess:
             heartbeat = multiprocessing.Process(target = self.heart,args = (pipe[self.myid][i]), )
             pass
     
-    def message(slef, message_from, message_to, mess):
+    def message(self, message_from, message_to, mess):
         msg = [] 
         self.pipe.send(mess)
         
