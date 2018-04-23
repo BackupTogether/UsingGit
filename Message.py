@@ -64,7 +64,6 @@ class MyProcess:
                 self.Electon()
             self.PrintId()
             time.sleep(1)
-
     
     def HeartBeat(self):
         for i in range(self.num):
