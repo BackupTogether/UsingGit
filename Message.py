@@ -19,9 +19,12 @@ class MyProcess:
         pipe.send(self.pid)
         
     def read(self,pipe):
-        now  = pipe.recv()
+        try:
+            now  = pipe.recv()
+        except:
+            pass
         #print(now)
-        self.AllPid.append(now)
+        #self.AllPid.append(now)
         #print(self.AllPid)
 
     def PrintId(self):
@@ -35,9 +38,33 @@ class MyProcess:
 
     def BroadCast(self):
         for i in range(self.num):
-            bd = multiprocessing.Process(target = self.Write,args=(self.pipe[self.myid][i][0],))
-            bd.start()
-            bd.join()
+            #bd = multiprocessing.Process(target = self.Write,args=(self.pipe[self.myid][i][0],))
+            #bd.start()
+            #bd.join()
+            self.pipe[self.myid][i][0].send(['BroadCast',self.pid])
+
+    def Election(self):
+        print(self.pid,'Election start')
+        for i in range(self.num):
+            try:
+                self.pipe[self.myid][i][0].send("quest")
+            except:
+                pass
+
+        ok = True
+
+        for i in range(self.num):
+            try:
+                now = None
+                while self.pipe[i][self.myid][1].poll():
+                    now = self.pipe[i][self.myid][1].recv()
+                if now != None and self.AllPid[i] > self.pid:
+                    ok = False
+            except:
+                pass
+        if ok:
+            self.leader = self.pid
+
 
     def Running(self):
         self.pid = self.GetPid()
@@ -49,25 +76,64 @@ class MyProcess:
             # bdget.start()
             now  = self.pipe[i][self.myid][1].recv()
             # print("Me:%s, Now: %s" % (self.pid, now))
-            self.AllPid.append(now)
+            if(now[0]== 'BroadCast'):
+                self.AllPid.append(now[1])
             # print(self.AllPid)
 
-        for i in range(len(bds)):
-            bds[i].join()
+#        for i in range(len(bds)):
+#            bds[i].join()
 
         print('My Pid is %d , BroadCast is ok.' % self.pid)
-        print (self.AllPid)
+        #print('All process listed below:')
+        #print (self.AllPid)
+        self.AllPid.sort()
+        time.sleep(3)
 
-
+        if self.leader == -1 and self.pid == self.AllPid[-1]:
+            self.leader = self.pid
+            self.BroadCast()
         while True:
             if self.leader == self.pid:
-                pass
+                self.BroadCast()
             elif self.leader == -1:
-                self.Election()
-            elif self.check(self.leader) == False:
-                self.Electon()
-            self.PrintId()
+                #self.Election()
+                try:
+                    for i in range(self.num):
+                        nowstate = self.pipe[i][self.myid][1].poll()
+                        if(nowstate == False):
+                            continue
+                        else:
+                            now = self.pipe[i][self.myid][1].recv()
+                            if(now[1] > self.pid):
+                                self.leader = now[1]
+                except:
+                    pass
+            else: 
+                ok = False
+                try:
+                    for i in range(5):
+                        for j in range(self.num):
+                            if self.AllPid[j] == self.leader:
+                                nowstate = self.pipe[j][self.myid][1].poll()
+                                if nowstate == True:
+                                    while self.pipe[j][self.myid][1].poll():
+                                        a = self.pipe[j][self.myid][1].recv()
+                                    ok = True
+                    time.sleep(0.3)
+                except:
+                    pass
+                if not ok:
+                    print(self.pid,'start')
+                    self.leader = -1
+                    self.Election()
+                #self.check(self.leader) == False:
+                #print(self.pid)
+                #self.Electon()
             time.sleep(1)
+            try:
+                self.PrintId()
+            except:
+                pass
     
     def HeartBeat(self):
         for i in range(self.num):
@@ -77,16 +143,19 @@ class MyProcess:
     def message(self, message_from, message_to, mess):
         msg = [] 
         self.pipe.send(mess)
+
+    def check(self, test_leader):
+        for i in range(5):
+            for j in range(self.num):
+                if self.AllPid[j] == self.leader:
+                    nowstate = self.pipe[j][self.myid][1].poll()
+                    if nowstate == True:
+                        while self.pipe[j][self.myid][1].poll():
+                            a = self.pipe[j][self.myid][1].recv()
+                        return True
+            time.sleep(0.3)
+        return False
         
-    def Election(self):
-#        if self.myid == self.num - 1:
-#            pass
-#        else:
-            for i in range (self.num):
-                if self.num < i:
-                    pass
-                else:
-                    pass
 
 def Init(ProcessNum):
     pass
@@ -97,15 +166,21 @@ def Main(ProcessNum):
     pipe = []
     Running_Process = []
     AllProcesses = []
+    Pipe_Port = []
+
     
     for i in range(ProcessNum):
         nowpipe = []
+        nowport = []
         for j in range(ProcessNum):
-            nowpipe.append(multiprocessing.Pipe())
-        pipe.append(nowpipe)
+            a,b = multiprocessing.Pipe()
+            #nowpipe.append(a,b = multiprocessing.Pipe())
+            nowport.append([a,b])
+        #pipe.append(nowpipe)
+        Pipe_Port.append(nowport)
     
     for i in range (ProcessNum):
-        all_process.append(MyProcess(i, ProcessNum, pipe))
+        all_process.append(MyProcess(i, ProcessNum, Pipe_Port))
         p = multiprocessing.Process(target = all_process[i].Running,args = ())
 #        NowPid = os.getpid(p)
 #        AllProcesses.append(NowPid)
